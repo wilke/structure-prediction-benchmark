@@ -1,0 +1,37 @@
+# Results and large data
+results/
+data/pdbs/*.pdb
+data/sequences/*.fasta
+data/all_sequences.fasta
+data/pdb_summary.tsv
+data/experimental/*.pdb
+data/experimental/*.cif
+data/msas/mmseqs2/*.a3m
+data/msas/jackhmmer/*.a3m
+data/msas/subsampled/*.a3m
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# GoWe state
+*.db
+.gowe/

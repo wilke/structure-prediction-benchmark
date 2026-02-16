@@ -1,0 +1,110 @@
+# Pilot protein targets for folding model comparison
+# Selection criteria: diverse fold classes, well-resolved (<2.0Å), 20-500 residues
+#
+# Categories:
+#   easy_small  - well-studied, small proteins
+#   alpha       - predominantly alpha-helical
+#   beta        - predominantly beta-sheet
+#   alpha_beta  - mixed alpha/beta
+#   enzyme      - catalytic proteins
+#   multi       - multi-domain proteins
+#   hard        - recent/difficult targets
+
+targets:
+  - pdb_id: 1UBQ
+    chain: A
+    name: Ubiquitin
+    category: easy_small
+    residues: 76
+    resolution: 1.8
+    fold_class: all-beta
+
+  - pdb_id: 1L2Y
+    chain: A
+    name: Trp-cage miniprotein
+    category: easy_small
+    residues: 20
+    resolution: NMR
+    fold_class: mini-protein
+
+  - pdb_id: 1MBN
+    chain: A
+    name: Myoglobin
+    category: alpha
+    residues: 153
+    resolution: 1.4
+    fold_class: all-alpha
+
+  - pdb_id: 1TEN
+    chain: A
+    name: Tenascin fibronectin III
+    category: beta
+    residues: 89
+    resolution: 1.8
+    fold_class: all-beta
+
+  - pdb_id: 1AKE
+    chain: A
+    name: Adenylate kinase
+    category: alpha_beta
+    residues: 214
+    resolution: 1.63
+    fold_class: alpha-beta
+
+  - pdb_id: 4LZT
+    chain: A
+    name: Hen egg-white lysozyme
+    category: enzyme
+    residues: 129
+    resolution: 0.94
+    fold_class: alpha-beta
+
+  - pdb_id: 2SRC
+    chain: A
+    name: Src tyrosine kinase
+    category: multi
+    residues: 452
+    resolution: 1.5
+    fold_class: multi-domain
+
+  - pdb_id: 1BL8
+    chain: A
+    name: Galectin-1
+    category: beta
+    residues: 135
+    resolution: 1.7
+    fold_class: all-beta
+
+  - pdb_id: 7MRX
+    chain: B
+    name: CASP14 target (T1091)
+    category: hard
+    residues: 141
+    resolution: 1.6
+    fold_class: novel
+
+  - pdb_id: 7S0B
+    chain: A
+    name: CASP15 target
+    category: hard
+    residues: 197
+    resolution: 1.85
+    fold_class: novel
+
+# MSA depth levels for Experiment 4
+msa_depths:
+  - 1       # single-sequence (no MSA)
+  - 8
+  - 16
+  - 32
+  - 64
+  - 128
+  - 256
+  - 512
+  - 1024
+  - full    # use complete MSA
+
+# MSA generation methods
+msa_methods:
+  - mmseqs2     # fast, broad coverage (ColabFold DB)
+  - jackhmmer   # sensitive, AF2 native (UniRef90)
