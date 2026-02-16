@@ -8,9 +8,9 @@ doc: |
 hints:
   goweHint:
     executor: local
-    docker_image: "dxkb/mmseqs2:latest"
+    docker_image: "staphb/mmseqs2:latest"
   DockerRequirement:
-    dockerPull: "dxkb/mmseqs2:latest"
+    dockerPull: "staphb/mmseqs2:latest"
   ResourceRequirement:
     coresMin: 8
     ramMin: 32000

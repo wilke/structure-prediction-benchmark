@@ -262,6 +262,108 @@ def plot_experiment4_depth_curves(df: pd.DataFrame, output_dir: Path):
         print(f"  Saved {fname}")
 
 
+def plot_plddt_analysis(df: pd.DataFrame, output_dir: Path):
+    """pLDDT as a direct metric: confidence comparison and calibration."""
+    if "mean_plddt_predicted" not in df.columns:
+        print("  No pLDDT data found, skipping.")
+        return
+
+    plddt_data = df.dropna(subset=["mean_plddt_predicted"])
+    if plddt_data.empty:
+        return
+
+    # 1. Mean pLDDT by tool (intrinsic confidence)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    ax = axes[0]
+    tool_plddt = plddt_data.groupby("tool")["mean_plddt_predicted"].agg(["mean", "std"])
+    tool_plddt = tool_plddt.reindex(TOOL_ORDER).dropna()
+    colors = [TOOL_COLORS.get(t, "#999") for t in tool_plddt.index]
+    ax.bar(tool_plddt.index, tool_plddt["mean"], yerr=tool_plddt["std"],
+           color=colors, capsize=4, edgecolor="black", linewidth=0.5)
+    ax.set_ylabel("Mean pLDDT (0–100)")
+    ax.set_ylim(0, 105)
+    ax.set_title("Intrinsic Confidence by Tool")
+    ax.axhline(y=70, color="#10B981", linestyle="--", alpha=0.5, label="High conf (≥70)")
+    ax.axhline(y=50, color="#EF4444", linestyle="--", alpha=0.5, label="Low conf (<50)")
+    ax.legend(fontsize=8)
+    ax.tick_params(axis="x", rotation=30)
+
+    # 2. pLDDT vs TM-score scatter (calibration)
+    ax = axes[1]
+    for tool in TOOL_ORDER:
+        subset = plddt_data[plddt_data["tool"] == tool]
+        if subset.empty or "tm_score" not in subset.columns:
+            continue
+        ax.scatter(
+            subset["mean_plddt_predicted"],
+            subset["tm_score"],
+            label=tool,
+            color=TOOL_COLORS.get(tool, "#999"),
+            s=40,
+            alpha=0.7,
+            edgecolors="black",
+            linewidth=0.3,
+        )
+    ax.set_xlabel("Mean pLDDT (0–100)")
+    ax.set_ylabel("TM-score vs Experimental")
+    ax.set_title("Confidence vs Actual Accuracy")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+
+    fig.suptitle("pLDDT Direct Analysis", y=1.02)
+    fig.tight_layout()
+    fig.savefig(output_dir / "plddt_analysis.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved plddt_analysis.png")
+
+    # 3. pLDDT with/without MSA comparison
+    msa_data = plddt_data[plddt_data["msa_condition"].isin(["with_msa", "no_msa"])]
+    if not msa_data.empty:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        tools = [t for t in TOOL_ORDER if t in msa_data["tool"].unique()]
+        x = np.arange(len(tools))
+        width = 0.35
+
+        no_msa = msa_data[msa_data["msa_condition"] == "no_msa"].groupby("tool")["mean_plddt_predicted"].mean()
+        with_msa = msa_data[msa_data["msa_condition"] == "with_msa"].groupby("tool")["mean_plddt_predicted"].mean()
+
+        ax.bar(x - width/2, [no_msa.get(t, 0) for t in tools], width,
+               label="No MSA", color="#E0E0E0", edgecolor="black", linewidth=0.5)
+        ax.bar(x + width/2, [with_msa.get(t, 0) for t in tools], width,
+               label="With MSA", color="#4285F4", edgecolor="black", linewidth=0.5)
+        ax.set_xticks(x)
+        ax.set_xticklabels(tools, rotation=30)
+        ax.set_ylabel("Mean pLDDT (0–100)")
+        ax.set_title("Model Confidence: MSA vs No-MSA")
+        ax.set_ylim(0, 105)
+        ax.axhline(y=70, color="#10B981", linestyle="--", alpha=0.5)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(output_dir / "plddt_msa_impact.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved plddt_msa_impact.png")
+
+    # 4. High-confidence fraction by tool
+    if "plddt_high_conf_fraction" in plddt_data.columns:
+        hc_data = plddt_data.dropna(subset=["plddt_high_conf_fraction"])
+        if not hc_data.empty:
+            fig, ax = plt.subplots(figsize=(7, 5))
+            tool_hc = hc_data.groupby("tool")["plddt_high_conf_fraction"].agg(["mean", "std"])
+            tool_hc = tool_hc.reindex(TOOL_ORDER).dropna()
+            colors = [TOOL_COLORS.get(t, "#999") for t in tool_hc.index]
+            ax.bar(tool_hc.index, tool_hc["mean"] * 100, yerr=tool_hc["std"] * 100,
+                   color=colors, capsize=4, edgecolor="black", linewidth=0.5)
+            ax.set_ylabel("% Residues with pLDDT ≥ 70")
+            ax.set_title("High-Confidence Fraction by Tool")
+            ax.set_ylim(0, 105)
+            ax.tick_params(axis="x", rotation=30)
+            fig.tight_layout()
+            fig.savefig(output_dir / "plddt_high_conf_fraction.png", dpi=150, bbox_inches="tight")
+            plt.close(fig)
+            print(f"  Saved plddt_high_conf_fraction.png")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate experiment comparison plots")
     parser.add_argument(
@@ -295,6 +397,9 @@ def main():
 
     print("\nPlotting Experiment 4...")
     plot_experiment4_depth_curves(df, output_dir)
+
+    print("\nPlotting pLDDT analysis...")
+    plot_plddt_analysis(df, output_dir)
 
     print(f"\nAll plots saved to {output_dir}")
 

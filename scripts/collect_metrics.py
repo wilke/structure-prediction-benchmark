@@ -33,6 +33,12 @@ METRIC_COLUMNS = [
     "mean_plddt_predicted",
     "mean_plddt_reference",
     "n_divergent_residues",
+    # pLDDT direct metrics
+    "plddt_high_conf_fraction",    # fraction of residues with pLDDT >= 70
+    "plddt_low_conf_fraction",     # fraction of residues with pLDDT < 50
+    "rmsd_high_conf",              # RMSD over high-confidence residues only
+    "tm_score_high_conf",          # TM-score over high-confidence residues only
+    "plddt_accuracy_correlation",  # Pearson r between per-residue pLDDT and 1/distance
 ]
 
 
@@ -56,6 +62,11 @@ def parse_metrics_json(filepath: Path) -> dict:
         "mean_plddt_1": ["mean_plddt_1", "plddt_reference"],
         "mean_plddt_2": ["mean_plddt_2", "plddt_predicted"],
         "n_divergent_residues": ["n_divergent_residues", "divergent_residues"],
+        "plddt_high_conf_fraction": ["plddt_high_conf_fraction", "high_confidence_fraction"],
+        "plddt_low_conf_fraction": ["plddt_low_conf_fraction", "low_confidence_fraction"],
+        "rmsd_high_conf": ["rmsd_high_conf", "rmsd_high_confidence"],
+        "tm_score_high_conf": ["tm_score_high_conf", "tmscore_high_confidence"],
+        "plddt_accuracy_correlation": ["plddt_accuracy_correlation", "confidence_calibration"],
     }
 
     for canonical, variants in field_map.items():
@@ -164,6 +175,11 @@ def collect_experiment_metrics(
             "mean_plddt_predicted": metrics.get("mean_plddt_2"),
             "mean_plddt_reference": metrics.get("mean_plddt_1"),
             "n_divergent_residues": metrics.get("n_divergent_residues"),
+            "plddt_high_conf_fraction": metrics.get("plddt_high_conf_fraction"),
+            "plddt_low_conf_fraction": metrics.get("plddt_low_conf_fraction"),
+            "rmsd_high_conf": metrics.get("rmsd_high_conf"),
+            "tm_score_high_conf": metrics.get("tm_score_high_conf"),
+            "plddt_accuracy_correlation": metrics.get("plddt_accuracy_correlation"),
         }
         rows.append(row)
 

@@ -8,9 +8,9 @@ doc: |
 hints:
   goweHint:
     executor: local
-    docker_image: "dxkb/hmmer:latest"
+    docker_image: "staphb/hmmer:latest"
   DockerRequirement:
-    dockerPull: "dxkb/hmmer:latest"
+    dockerPull: "staphb/hmmer:latest"
   ResourceRequirement:
     coresMin: 8
     ramMin: 32000
