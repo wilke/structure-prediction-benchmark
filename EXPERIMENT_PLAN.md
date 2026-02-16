@@ -203,7 +203,7 @@ The query sequence is always preserved as the first entry.
 
 | Tool | Docker Image | Approach | MSA Input | No-MSA Strategy |
 |------|-------------|----------|-----------|-----------------|
-| AlphaFold2 | `wilke/alphafold` | Co-evolution + attention | Required (A3M) | Single-sequence A3M |
+| AlphaFold2 | `wilke/alphafold` | Co-evolution + attention | Required (A3M) | Reduced-MSA (single-seq A3M)* |
 | Boltz | `dxkb/boltz` | Diffusion-based generation | Optional (A3M or server) | Omit `msa:` field |
 | Chai | `dxkb/chai` | Hybrid attention | Optional (A3M) | Omit MSA input |
 | ESMFold | `dxkb/esmfold` | Protein language model | Not supported | Always single-sequence |
@@ -212,11 +212,15 @@ The query sequence is always preserved as the first entry.
 
 **CWL tool:** [`cwl/tools/alphafold-predict.cwl`](cwl/tools/alphafold-predict.cwl)
 
-AlphaFold2 uses a deep neural network that combines MSA-derived co-evolutionary features with structural attention modules. It natively requires MSA input; for no-MSA testing, we supply a single-sequence A3M file containing only the query.
+AlphaFold2 uses a deep neural network that combines MSA-derived co-evolutionary features with structural attention modules. It natively requires MSA input; for reduced-MSA testing, we supply a single-sequence A3M file containing only the query.
+
+**Important note on "no-MSA" mode:** AlphaFold2 with a single-sequence A3M is NOT a true single-sequence architecture — the Evoformer still processes the MSA representation, just with depth=1. This is fundamentally different from ESMFold, which uses a language model embedding with no MSA processing pathway. We label this condition "reduced-MSA" (not "no-MSA") throughout to avoid false equivalence with ESMFold. Direct comparisons between AF2 reduced-MSA and ESMFold should be interpreted with this caveat.
 
 **Key parameters:**
 - `model_preset`: `monomer` (single chain predictions)
 - `use_precomputed_msas`: `true` (use our precomputed A3M files rather than running the internal MSA pipeline)
+- `use_templates`: `false` (templates are disabled across all experiments to isolate the MSA variable; see Section 9.6)
+- `random_seed`: `42` (fixed for reproducibility; see Section 9.6)
 - `data_dir`: Path to AlphaFold model weights and databases
 
 **Inputs:** FASTA sequence + precomputed A3M + model weights directory
@@ -230,11 +234,14 @@ Boltz uses a diffusion-based approach to generate protein structures. It accepts
 
 **Key parameters:**
 - `recycling_steps`: 3 (iterative refinement cycles)
-- `diffusion_samples`: 1 (number of structure samples to generate)
+- `diffusion_samples`: 1 (number of structure samples to generate; set to 3 for replicate analysis)
 - `use_msa_server`: false (use precomputed MSAs, not live server)
+- `random_seed`: `42` (fixed for reproducibility; see Section 9.6)
 
 **Inputs:** YAML manifest (references FASTA and optionally A3M)
 **Outputs:** mmCIF file (converted to PDB for comparison)
+
+**Stochastic note:** Boltz uses a diffusion process with inherent stochasticity. We fix the random seed for the primary runs, and additionally run N=3 replicates with different seeds for Experiments 1 and 3 to quantify prediction variance.
 
 ### 4.4 Chai
 
@@ -244,6 +251,7 @@ Chai is a hybrid structure prediction tool supporting optional MSA input. When a
 
 **Key parameters:**
 - `num_models`: 1 (number of predicted models)
+- `random_seed`: `42` (fixed for reproducibility; see Section 9.6)
 
 **Inputs:** FASTA sequence + optional A3M file
 **Outputs:** PDB file with pLDDT in B-factor column
@@ -259,6 +267,8 @@ ESMFold uses the ESM-2 protein language model to predict structures from single 
 
 **Inputs:** FASTA sequence only
 **Outputs:** PDB file with pLDDT in B-factor column
+
+**Note:** ESMFold is deterministic (no stochastic sampling), so replicates are unnecessary.
 
 ---
 
@@ -366,20 +376,20 @@ gowe submit cwl/workflows/experiment2-across-tools.cwl \
 ### 7.1 Design
 
 Each MSA-capable tool is run under three conditions:
-1. **no_msa**: Single-sequence prediction (no evolutionary information)
+1. **reduced_msa** (AlphaFold2) / **no_msa** (Boltz, Chai): Minimal or no evolutionary information
 2. **msa_mmseqs2**: Prediction using MMseqs2-generated MSA
 3. **msa_jackhmmer**: Prediction using JackHMMER-generated MSA
 
-ESMFold runs only under `no_msa` since it cannot use MSA input.
+ESMFold runs only under `single_sequence` since it is a true single-sequence model with no MSA pathway. AlphaFold2's depth=1 condition is labeled `reduced_msa` because it still processes through the Evoformer MSA pathway — it is not directly comparable to ESMFold's single-sequence mode.
 
 ### 7.2 Conditions Matrix
 
-| Tool | no_msa | msa_mmseqs2 | msa_jackhmmer |
-|------|--------|-------------|---------------|
-| AlphaFold2 | Single-seq A3M | MMseqs2 A3M | JackHMMER A3M |
-| Boltz | No MSA field | MMseqs2 A3M | JackHMMER A3M |
-| Chai | No MSA file | MMseqs2 A3M | JackHMMER A3M |
-| ESMFold | Sequence only | N/A | N/A |
+| Tool | Minimal condition | msa_mmseqs2 | msa_jackhmmer |
+|------|-------------------|-------------|---------------|
+| AlphaFold2 | **reduced_msa**: Single-seq A3M (Evoformer still active) | MMseqs2 A3M | JackHMMER A3M |
+| Boltz | **no_msa**: Omit MSA field | MMseqs2 A3M | JackHMMER A3M |
+| Chai | **no_msa**: Omit MSA file | MMseqs2 A3M | JackHMMER A3M |
+| ESMFold | **single_sequence**: True single-seq model | N/A | N/A |
 
 Total prediction runs: (3 tools x 3 conditions + 1 tool x 1 condition) x 10 targets = **100 predictions**
 
@@ -499,7 +509,7 @@ gowe submit cwl/workflows/experiment4-msa-depth.cwl \
 
 ### 9.1 Structure Comparison Tool
 
-All structural comparisons use the `protein_compare` CLI from the [protein_structure_analysis](https://github.com/BV-BRC/protein_structure_analysis) toolkit.
+All structural comparisons use the `protein_compare` CLI from the [protein_structure_analysis](https://github.com/BV-BRC/protein_structure_analysis) toolkit. Structural alignment is performed internally using **TM-align** (Zhang & Skolnick, 2005), which produces optimal superpositions for TM-score, RMSD, and GDT calculations. Contact maps use a **Cβ distance threshold of 8 Å** (Cα for glycine residues, which lack a Cβ atom). Secondary structure is assigned via **DSSP**.
 
 **CWL tools:**
 - [`cwl/tools/compare-structures.cwl`](cwl/tools/compare-structures.cwl) — Single pairwise comparison
@@ -538,7 +548,56 @@ These metrics evaluate the tools' intrinsic confidence and its relationship to a
 | High-confidence TM-score | 0-1 | TM-score over only confident residues |
 | pLDDT-accuracy correlation | -1 to 1 | Confidence calibration quality |
 
-### 9.5 Metric Collection
+### 9.5 MSA Quality Metrics
+
+Raw sequence count (depth) is a poor proxy for evolutionary information content. Two MSAs with the same depth can have vastly different amounts of co-evolutionary signal depending on sequence diversity. We therefore report MSA quality metrics alongside depth.
+
+| Metric | Definition | Purpose |
+|--------|-----------|---------|
+| **Neff** (effective sequences) | Number of non-redundant sequences at 80% identity threshold: Neff = Σ(1 / cluster_size_i) | Measures true information content; accounts for redundancy within the MSA |
+| **Mean pairwise identity** | Average sequence identity between all pairs in the MSA | Indicates how diverse the alignment is |
+| **Coverage** | Fraction of query positions with at least one aligned residue | Detects partial MSAs that cover only part of the protein |
+
+**Script:** [`scripts/compute_msa_stats.py`](scripts/compute_msa_stats.py)
+
+For Experiment 4, depth-quality curves are plotted against log(Neff) in addition to raw depth, providing a more meaningful x-axis that is comparable across different MSA sources.
+
+### 9.6 Reproducibility and Experimental Controls
+
+To ensure reproducible and unconfounded results, the following controls are applied uniformly across all experiments.
+
+**Random seeds:** All tools are run with a fixed random seed (42) for the primary analysis. For tools with stochastic components (Boltz diffusion process, Chai sampling), we additionally run N=3 replicates with seeds {42, 123, 456} in Experiments 1 and 3 to quantify prediction variance.
+
+**Template usage:** PDB templates are explicitly **disabled** for all tools to isolate the effect of MSA information. AlphaFold2 is run with `--max_template_date=1900-01-01` (effectively no templates). Boltz and Chai do not use templates by default. This ensures that accuracy differences reflect MSA influence, not template availability.
+
+**Recycling iterations:** Each tool uses its recommended default recycling count. These are documented rather than standardized because optimal recycling depends on the architecture:
+
+| Tool | Recycling iterations | Rationale |
+|------|---------------------|-----------|
+| AlphaFold2 | 3 (default) | Standard AF2 setting |
+| Boltz | 3 | Default diffusion refinement |
+| Chai | 3 (default) | Standard Chai setting |
+| ESMFold | 4 | Recommended for single-seq mode |
+
+**Scope:** All experiments target monomeric proteins only. Heteroatoms, ligands, and water molecules are removed from experimental PDBs during preparation. Missing residues in experimental structures are noted but not modeled.
+
+**pLDDT calibration caveat:** pLDDT scores are not directly comparable across different tools. Each tool's confidence head is trained differently. Cross-tool pLDDT comparisons should be interpreted as relative rankings within each tool, not absolute quality measures. The pLDDT-accuracy correlation analysis (Section 9.4) quantifies how well each tool's confidence is calibrated against actual accuracy.
+
+### 9.7 Statistical Analysis
+
+With N=10 targets, statistical testing must account for the paired nature of the data (same targets evaluated across conditions).
+
+**Paired comparisons:** Wilcoxon signed-rank tests are used to compare matched (target, tool) pairs across MSA conditions. This non-parametric test is appropriate for the small sample size and does not assume normally distributed metric differences.
+
+**Bootstrap confidence intervals:** 95% CIs are computed via 10,000 bootstrap resamples of target-level means. This provides uncertainty estimates for all reported average metrics.
+
+**Effect size:** Cohen's d is reported alongside p-values to distinguish statistically significant from practically meaningful differences. With N=10, even large effects may not reach significance, so effect sizes are essential for interpretation.
+
+**Multiple comparison correction:** When comparing all tool pairs (6 pairwise comparisons), Bonferroni correction is applied to maintain a family-wise error rate of 0.05.
+
+**Script:** Statistical tests are integrated into [`scripts/plot_results.py`](scripts/plot_results.py), with detailed results written to `results/statistical_tests.csv`.
+
+### 9.8 Metric Collection
 
 **Script:** [`scripts/collect_metrics.py`](scripts/collect_metrics.py)
 
@@ -546,7 +605,7 @@ These metrics evaluate the tools' intrinsic confidence and its relationship to a
 python scripts/collect_metrics.py --results-dir results/ --output results/all_metrics.csv
 ```
 
-This script recursively scans the `results/` directory for JSON metrics files, infers experimental metadata (tool, MSA condition, MSA source, depth) from file paths, and writes a consolidated CSV with all columns listed in sections 9.2-9.4.
+This script recursively scans the `results/` directory for JSON metrics files, infers experimental metadata (tool, MSA condition, MSA source, depth) from file paths, and writes a consolidated CSV with all columns listed in sections 9.2-9.5.
 
 ---
 
@@ -715,3 +774,45 @@ ProteinFoldingApp/
 │       └── subsampled/
 └── results/                        ← Workflow outputs (gitignored)
 ```
+
+---
+
+## Appendix B: CASP-Style Benchmarking (Scale-Up Notes)
+
+The current study is a 10-target pilot designed to validate the experimental framework and analysis pipeline. When scaling to a publication-grade benchmark, the following CASP-style rigor should be applied. These notes are preserved here for reference when the pilot phase is complete.
+
+### Dataset Design
+
+- **Temporal split**: Apply training data cutoff filtering. Select only PDB structures deposited AFTER each tool's training data cutoff date (e.g., AF2 training cutoff ~April 2018; Boltz, Chai, ESMFold have later cutoffs). This prevents information leakage where the model has "seen" the target during training.
+- **Redundancy filtering**: Cluster all targets at <30% sequence identity (using MMseqs2 `easy-cluster`) and select one representative per cluster. This ensures results are not inflated by homologous targets.
+- **CASP-style difficulty categories**: Classify targets into Template-Based Modeling (TBM), Free Modeling (FM), and TBM/FM based on the availability of structural templates at >30% identity. Report results stratified by difficulty.
+- **Size**: Expand to 100+ targets for statistical power. Target a minimum of 20 per difficulty category.
+- **Structural class distribution**: Ensure balanced representation of SCOP/CATH classes. Report the fold distribution alongside results.
+
+### MSA Protocol Enhancements
+
+- **Neff reporting**: For every MSA, compute and report Neff (effective sequence count at 80% identity). All depth-quality curves should use log(Neff) as the primary x-axis.
+- **Cross-pipeline factorial design**: Run every tool with MSAs from every pipeline (MMseqs2 and JackHMMER), not just each tool's "native" method. This creates a full factorial design that separates search method effects from model architecture effects.
+- **MSA identity distribution**: For each MSA, report the histogram of pairwise identities between query and hits. This characterizes whether an MSA captures close homologs, twilight-zone hits, or both.
+
+### Replication and Variance
+
+- **Replicate runs**: For all stochastic tools (Boltz, Chai), run N >= 5 replicates with different random seeds and report mean +/- standard deviation for all metrics.
+- **Subsampling replicates**: For MSA depth experiments, generate multiple independent random subsamples at each depth to quantify sampling noise.
+
+### Expanded Evaluation
+
+- **Paired statistical testing**: Wilcoxon signed-rank tests for paired comparisons across conditions, with Bonferroni correction for multiple comparisons.
+- **Bootstrap confidence intervals**: 95% CIs via 10,000 bootstrap resamples for all reported average metrics.
+- **Effect size**: Report Cohen's d alongside p-values.
+- **Scaling plots**: Plot TM-score vs log(Neff) for each tool to characterize each architecture's MSA scaling behavior.
+- **Failure case analysis**: Qualitatively analyze worst-performing targets per tool, looking for patterns: long disordered loops, domain boundaries, unusual topologies, beta-sheet register errors.
+
+### Calibration Analysis
+
+- **Per-tool pLDDT calibration curves**: Bin residues by pLDDT score (e.g., 0-10, 10-20, ..., 90-100) and plot the actual per-residue accuracy (1/distance error) within each bin. This reveals whether each tool's confidence is well-calibrated or systematically over/under-confident.
+- **Cross-tool calibration note**: pLDDT values from different tools should never be directly compared on the same scale. Each tool's confidence head is trained differently and may use different loss functions.
+
+### Reference
+
+These recommendations draw from CASP evaluation protocols (Kryshtafovych et al., Proteins, 2021) and the AlphaFold2 benchmarking methodology (Jumper et al., Nature, 2021).

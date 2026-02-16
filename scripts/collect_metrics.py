@@ -39,6 +39,10 @@ METRIC_COLUMNS = [
     "rmsd_high_conf",              # RMSD over high-confidence residues only
     "tm_score_high_conf",          # TM-score over high-confidence residues only
     "plddt_accuracy_correlation",  # Pearson r between per-residue pLDDT and 1/distance
+    # MSA quality metrics (joined from msa_stats.csv if available)
+    "msa_neff",                    # effective number of sequences
+    "msa_mean_pairwise_identity",  # mean identity between query and hits
+    "msa_coverage",                # fraction of query covered
 ]
 
 
@@ -216,12 +220,31 @@ def main():
         default="all",
         help="Which experiment results to collect",
     )
+    parser.add_argument(
+        "--msa-stats",
+        type=str,
+        default=None,
+        help="Path to MSA stats CSV (from compute_msa_stats.py) to join Neff/identity/coverage",
+    )
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)
     if not results_dir.exists():
         print(f"Results directory not found: {results_dir}", file=sys.stderr)
         sys.exit(1)
+
+    # Load MSA stats if provided
+    msa_stats = {}
+    if args.msa_stats:
+        msa_stats_path = Path(args.msa_stats)
+        if msa_stats_path.exists():
+            import csv as csv_mod
+            with open(msa_stats_path) as f:
+                reader = csv_mod.DictReader(f)
+                for row in reader:
+                    key = (row.get("target_id", ""), row.get("msa_source", ""))
+                    msa_stats[key] = row
+            print(f"Loaded MSA stats for {len(msa_stats)} entries")
 
     all_rows = []
 
@@ -256,6 +279,16 @@ def main():
     if not all_rows:
         print("No metrics found. Ensure workflows have been run first.")
         sys.exit(0)
+
+    # Join MSA quality stats if available
+    if msa_stats:
+        for row in all_rows:
+            key = (row.get("target_id", ""), row.get("msa_source", ""))
+            if key in msa_stats:
+                stats = msa_stats[key]
+                row["msa_neff"] = stats.get("neff")
+                row["msa_mean_pairwise_identity"] = stats.get("mean_pairwise_identity")
+                row["msa_coverage"] = stats.get("coverage")
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

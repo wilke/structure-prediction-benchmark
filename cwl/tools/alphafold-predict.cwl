@@ -62,10 +62,10 @@ inputs:
 
   max_template_date:
     type: string
-    default: "2025-01-01"
+    default: "1900-01-01"
     inputBinding:
       prefix: "--max_template_date"
-    doc: "Maximum template release date (YYYY-MM-DD)"
+    doc: "Maximum template release date (YYYY-MM-DD). Set to 1900-01-01 to disable templates and isolate MSA effects."
 
   msa_dir:
     type: Directory?

@@ -10,6 +10,7 @@ Produces:
 """
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -20,6 +21,7 @@ import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy import stats as scipy_stats
 
 
 # Consistent color palette for tools
@@ -364,6 +366,122 @@ def plot_plddt_analysis(df: pd.DataFrame, output_dir: Path):
             print(f"  Saved plddt_high_conf_fraction.png")
 
 
+def compute_statistical_tests(df: pd.DataFrame, output_dir: Path):
+    """Paired statistical tests: Wilcoxon signed-rank, bootstrap CI, effect size."""
+    results = []
+
+    # --- MSA impact: paired comparison per tool (with_msa vs no_msa) ---
+    msa_data = df[df["msa_condition"].isin(["with_msa", "no_msa"])]
+    for tool in TOOL_ORDER:
+        tool_data = msa_data[msa_data["tool"] == tool]
+        if tool_data.empty:
+            continue
+        for metric in ["tm_score", "rmsd", "gdt_ts"]:
+            with_vals = tool_data[tool_data["msa_condition"] == "with_msa"].set_index("target_id")[metric]
+            no_vals = tool_data[tool_data["msa_condition"] == "no_msa"].set_index("target_id")[metric]
+            common = with_vals.index.intersection(no_vals.index)
+            if len(common) < 3:
+                continue
+            w = with_vals.loc[common].values
+            n = no_vals.loc[common].values
+            diff = w - n
+
+            # Wilcoxon signed-rank
+            try:
+                stat, pval = scipy_stats.wilcoxon(diff)
+            except ValueError:
+                stat, pval = np.nan, np.nan
+
+            # Cohen's d
+            d_mean = np.mean(diff)
+            d_std = np.std(diff, ddof=1)
+            cohens_d = d_mean / d_std if d_std > 0 else np.nan
+
+            # Bootstrap 95% CI for mean difference
+            rng = np.random.default_rng(42)
+            boot_means = []
+            for _ in range(10000):
+                sample = rng.choice(diff, size=len(diff), replace=True)
+                boot_means.append(np.mean(sample))
+            ci_low, ci_high = np.percentile(boot_means, [2.5, 97.5])
+
+            results.append({
+                "comparison": f"{tool}: with_msa vs no_msa",
+                "metric": metric,
+                "n_targets": len(common),
+                "mean_diff": round(d_mean, 4),
+                "wilcoxon_stat": round(stat, 4) if not np.isnan(stat) else "",
+                "p_value": round(pval, 6) if not np.isnan(pval) else "",
+                "cohens_d": round(cohens_d, 3) if not np.isnan(cohens_d) else "",
+                "ci_95_low": round(ci_low, 4),
+                "ci_95_high": round(ci_high, 4),
+            })
+
+    # --- Cross-tool pairwise comparisons (Bonferroni-corrected) ---
+    default_data = df[df["msa_condition"].isin(["default", "with_msa"])]
+    n_tool_pairs = 0
+    tool_pair_results = []
+    for i, tool_a in enumerate(TOOL_ORDER):
+        for tool_b in TOOL_ORDER[i + 1:]:
+            n_tool_pairs += 1
+            for metric in ["tm_score"]:
+                a_vals = default_data[default_data["tool"] == tool_a].set_index("target_id")[metric]
+                b_vals = default_data[default_data["tool"] == tool_b].set_index("target_id")[metric]
+                common = a_vals.index.intersection(b_vals.index)
+                if len(common) < 3:
+                    continue
+                a = a_vals.loc[common].values
+                b = b_vals.loc[common].values
+                diff = a - b
+
+                try:
+                    stat, pval = scipy_stats.wilcoxon(diff)
+                except ValueError:
+                    stat, pval = np.nan, np.nan
+
+                d_mean = np.mean(diff)
+                d_std = np.std(diff, ddof=1)
+                cohens_d = d_mean / d_std if d_std > 0 else np.nan
+
+                tool_pair_results.append({
+                    "comparison": f"{tool_a} vs {tool_b}",
+                    "metric": metric,
+                    "n_targets": len(common),
+                    "mean_diff": round(d_mean, 4),
+                    "wilcoxon_stat": round(stat, 4) if not np.isnan(stat) else "",
+                    "p_value_raw": pval,
+                    "cohens_d": round(cohens_d, 3) if not np.isnan(cohens_d) else "",
+                })
+
+    # Apply Bonferroni correction
+    for r in tool_pair_results:
+        raw_p = r.pop("p_value_raw")
+        if not np.isnan(raw_p):
+            corrected = min(raw_p * n_tool_pairs, 1.0)
+            r["p_value_bonferroni"] = round(corrected, 6)
+        else:
+            r["p_value_bonferroni"] = ""
+        r["ci_95_low"] = ""
+        r["ci_95_high"] = ""
+        results.append(r)
+
+    # Write results
+    if results:
+        outpath = output_dir / "statistical_tests.csv"
+        fieldnames = [
+            "comparison", "metric", "n_targets", "mean_diff",
+            "wilcoxon_stat", "p_value", "p_value_bonferroni",
+            "cohens_d", "ci_95_low", "ci_95_high",
+        ]
+        with open(outpath, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(results)
+        print(f"  Saved statistical_tests.csv ({len(results)} tests)")
+    else:
+        print("  No data available for statistical testing.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate experiment comparison plots")
     parser.add_argument(
@@ -400,6 +518,9 @@ def main():
 
     print("\nPlotting pLDDT analysis...")
     plot_plddt_analysis(df, output_dir)
+
+    print("\nRunning statistical tests...")
+    compute_statistical_tests(df, output_dir)
 
     print(f"\nAll plots saved to {output_dir}")
 
