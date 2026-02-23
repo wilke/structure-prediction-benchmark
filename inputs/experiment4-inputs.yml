@@ -1,0 +1,46 @@
+# Experiment 4: MSA Depth Sensitivity
+# Tests how subsampling MSAs to different depths affects prediction quality.
+# Uses Boltz with both MMseqs2 and JackHMMER MSAs at varying depths.
+#
+# Before running, ensure:
+#   - prepare_targets.py has been run
+#   - generate_msas.py has been run with both mmseqs2 and jackhmmer methods
+
+target_fastas:
+  - class: File
+    path: ../data/sequences/1AHW_A.fasta
+  - class: File
+    path: ../data/sequences/1BKR_A.fasta
+  # Add one entry per target
+
+experimental_pdbs:
+  - class: File
+    path: ../data/experimental/1AHW_A.pdb
+  - class: File
+    path: ../data/experimental/1BKR_A.pdb
+  # Must match order of target_fastas
+
+full_msas_mmseqs2:
+  - class: File
+    path: ../data/msas/mmseqs2/1AHW_A.a3m
+  - class: File
+    path: ../data/msas/mmseqs2/1BKR_A.a3m
+  # Full MSAs from MMseqs2 (A3M format)
+
+full_msas_jackhmmer:
+  - class: File
+    path: ../data/msas/jackhmmer/1AHW_A.a3m
+  - class: File
+    path: ../data/msas/jackhmmer/1BKR_A.a3m
+  # Full MSAs from JackHMMER (A3M format)
+
+msa_depths:
+  - 1
+  - 8
+  - 16
+  - 32
+  - 64
+  - 128
+  - 256
+  - 512
+  - 1024

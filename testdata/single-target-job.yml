@@ -1,0 +1,22 @@
+# Smoke test: Run AlphaFold2 on a single target
+# Usage: gowe run --server http://localhost:8080 cwl/tools/alphafold-predict.cwl -i testdata/single-target-job.yml
+#
+# Before running, ensure:
+#   - prepare_targets.py has been run (creates data/sequences/ and data/experimental/)
+#   - AlphaFold databases are staged at /data/alphafold-databases
+
+fasta:
+  class: File
+  path: ../data/sequences/1AHW_A.fasta
+
+data_dir:
+  class: Directory
+  path: /data/alphafold-databases
+
+model_preset: monomer
+
+db_preset: full_dbs
+
+max_template_date: "1900-01-01"
+
+use_precomputed_msas: false

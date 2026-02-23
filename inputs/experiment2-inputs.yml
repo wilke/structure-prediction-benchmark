@@ -1,0 +1,46 @@
+# Experiment 2: Cross-Tool Comparison
+# Compares predictions from all four tools against each other and the
+# experimental structure. Requires outputs from Experiment 1.
+#
+# Before running, ensure Experiment 1 has completed and predictions
+# are available in the results directory.
+
+target_ids:
+  - "1AHW_A"
+  - "1BKR_A"
+  # Add one entry per target from configs/targets_pilot.yaml
+
+experimental_pdbs:
+  - class: File
+    path: ../data/experimental/1AHW_A.pdb
+  - class: File
+    path: ../data/experimental/1BKR_A.pdb
+  # Must match order of target_ids
+
+alphafold_pdbs:
+  - class: File
+    path: ../results/exp1/alphafold/1AHW_A/ranked_0.pdb
+  - class: File
+    path: ../results/exp1/alphafold/1BKR_A/ranked_0.pdb
+  # AlphaFold2 predictions from Experiment 1
+
+boltz_cifs:
+  - class: File
+    path: ../results/exp1/boltz/1AHW_A/prediction.cif
+  - class: File
+    path: ../results/exp1/boltz/1BKR_A/prediction.cif
+  # Boltz predictions from Experiment 1
+
+chai_cifs:
+  - class: File
+    path: ../results/exp1/chai/1AHW_A/prediction.cif
+  - class: File
+    path: ../results/exp1/chai/1BKR_A/prediction.cif
+  # Chai predictions from Experiment 1
+
+esmfold_pdbs:
+  - class: File
+    path: ../results/exp1/esmfold/1AHW_A/prediction.pdb
+  - class: File
+    path: ../results/exp1/esmfold/1BKR_A/prediction.pdb
+  # ESMFold predictions from Experiment 1

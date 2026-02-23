@@ -1,0 +1,34 @@
+# Experiment 1: Within-Tool Quality Assessment
+# Runs all four prediction tools on the same set of targets and compares
+# each prediction against the experimental structure.
+#
+# Before running, ensure:
+#   - prepare_targets.py has been run (populates data/experimental/ and data/sequences/)
+#   - generate_msas.py has been run (populates data/msas/)
+#   - Boltz YAML input files have been created (see docs)
+#   - AlphaFold databases are staged
+
+target_fastas:
+  - class: File
+    path: ../data/sequences/1AHW_A.fasta
+  - class: File
+    path: ../data/sequences/1BKR_A.fasta
+  # Add one entry per target from configs/targets_pilot.yaml
+
+target_experimental_pdbs:
+  - class: File
+    path: ../data/experimental/1AHW_A.pdb
+  - class: File
+    path: ../data/experimental/1BKR_A.pdb
+  # Must match order of target_fastas
+
+boltz_yamls:
+  - class: File
+    path: ../data/boltz_inputs/1AHW_A.yaml
+  - class: File
+    path: ../data/boltz_inputs/1BKR_A.yaml
+  # Boltz YAML files referencing MSA paths for each target
+
+alphafold_data_dir:
+  class: Directory
+  path: /data/alphafold-databases

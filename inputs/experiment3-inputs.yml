@@ -1,0 +1,69 @@
+# Experiment 3: MSA Impact Analysis
+# Tests how MSA source (none, MMseqs2, JackHMMER) affects prediction quality
+# for AlphaFold2 and Boltz.
+#
+# Before running, ensure:
+#   - prepare_targets.py has been run
+#   - generate_msas.py has been run with both mmseqs2 and jackhmmer methods
+#   - Boltz YAML input files have been created for each MSA condition
+#   - Single-sequence A3M files exist for the no-MSA AF2 condition
+
+target_fastas:
+  - class: File
+    path: ../data/sequences/1AHW_A.fasta
+  - class: File
+    path: ../data/sequences/1BKR_A.fasta
+  # Add one entry per target
+
+experimental_pdbs:
+  - class: File
+    path: ../data/experimental/1AHW_A.pdb
+  - class: File
+    path: ../data/experimental/1BKR_A.pdb
+  # Must match order of target_fastas
+
+boltz_yamls_no_msa:
+  - class: File
+    path: ../data/boltz_inputs/no_msa/1AHW_A.yaml
+  - class: File
+    path: ../data/boltz_inputs/no_msa/1BKR_A.yaml
+  # Boltz YAMLs without MSA paths
+
+boltz_yamls_mmseqs2:
+  - class: File
+    path: ../data/boltz_inputs/mmseqs2/1AHW_A.yaml
+  - class: File
+    path: ../data/boltz_inputs/mmseqs2/1BKR_A.yaml
+  # Boltz YAMLs with MMseqs2 MSA paths
+
+boltz_yamls_jackhmmer:
+  - class: File
+    path: ../data/boltz_inputs/jackhmmer/1AHW_A.yaml
+  - class: File
+    path: ../data/boltz_inputs/jackhmmer/1BKR_A.yaml
+  # Boltz YAMLs with JackHMMER MSA paths
+
+msas_mmseqs2:
+  - class: File
+    path: ../data/msas/mmseqs2/1AHW_A.a3m
+  - class: File
+    path: ../data/msas/mmseqs2/1BKR_A.a3m
+  # Precomputed MSAs from MMseqs2
+
+msas_jackhmmer:
+  - class: File
+    path: ../data/msas/jackhmmer/1AHW_A.a3m
+  - class: File
+    path: ../data/msas/jackhmmer/1BKR_A.a3m
+  # Precomputed MSAs from JackHMMER
+
+alphafold_data_dir:
+  class: Directory
+  path: /data/alphafold-databases
+
+single_seq_msas:
+  - class: File
+    path: ../data/msas/single_seq/1AHW_A.a3m
+  - class: File
+    path: ../data/msas/single_seq/1BKR_A.a3m
+  # Single-sequence A3M files for AF2 no-MSA condition
