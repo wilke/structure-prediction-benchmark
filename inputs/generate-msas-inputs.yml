@@ -1,0 +1,57 @@
+# MSA Generation: 4-way combinations (2 tools × 2 databases)
+# Runs JackHMMER and MMseqs2 against both UniRef90 and UniRef30.
+#
+# Prerequisites:
+#   - prepare_targets.py has been run (populates data/*.fasta)
+#   - UniRef90 FASTA at /scout/data/uniref90/uniref90.fasta
+#   - UniRef90 MMseqs2 DB at /scout/data/uniref90/ (uniref90_db + .dbtype + .index)
+#   - UniRef30 FASTA at /scout/data/colabfold/uniref30_2302.fasta
+#   - UniRef30 MMseqs2 DB at /scout/data/colabfold/ (uniref30_2302 + .dbtype + .index)
+
+target_fastas:
+  - class: File
+    path: ../data/1ubq_chainA.fasta    # 1UBQ_A - Ubiquitin (76 res)
+  - class: File
+    path: ../data/1l2y_chainA.fasta    # 1L2Y_A - Trp-cage miniprotein (20 res)
+  - class: File
+    path: ../data/1mbn_chainA.fasta    # 1MBN_A - Myoglobin (153 res)
+  - class: File
+    path: ../data/1ten_chainA.fasta    # 1TEN_A - Tenascin fibronectin III (90 res)
+  - class: File
+    path: ../data/1ake_chainA.fasta    # 1AKE_A - Adenylate kinase (214 res)
+  - class: File
+    path: ../data/4lzt_chainA.fasta    # 4LZT_A - Hen egg-white lysozyme (129 res)
+  - class: File
+    path: ../data/2src_chainA.fasta    # 2SRC_A - Src tyrosine kinase (449 res)
+  - class: File
+    path: ../data/1bl8_chainA.fasta    # 1BL8_A - Galectin-1 (97 res)
+  - class: File
+    path: ../data/7mrx_chainB.fasta    # 7MRX_B - CASP14 target T1091 (90 res)
+  - class: File
+    path: ../data/7s0b_chainA.fasta    # 7S0B_A - CASP15 target (218 res)
+
+# JackHMMER databases (FASTA format)
+uniref90_fasta:
+  class: File
+  path: /scout/data/uniref90/uniref90.fasta
+
+uniref30_fasta:
+  class: File
+  path: /scout/data/colabfold/uniref30_2302.fasta
+
+# MMseqs2 databases (native format)
+uniref90_mmseqs_db:
+  class: Directory
+  path: /scout/data/uniref90
+
+uniref90_mmseqs_db_prefix: "uniref90_db"
+
+uniref30_mmseqs_db:
+  class: Directory
+  path: /scout/data/colabfold
+
+uniref30_mmseqs_db_prefix: "uniref30_2302"
+
+# Resource allocation
+jackhmmer_cpus: 64
+mmseqs2_threads: 64

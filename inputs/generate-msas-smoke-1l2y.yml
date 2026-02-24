@@ -1,0 +1,28 @@
+# Smoke test: MSA generation for 1L2Y (Trp-cage, 20 residues)
+# Tests all 4 combinations: 2 tools × 2 databases
+target_fastas:
+  - class: File
+    path: ../data/1l2y_chainA.fasta
+
+uniref90_fasta:
+  class: File
+  path: /scout/data/uniref90/uniref90.fasta
+
+uniref30_fasta:
+  class: File
+  path: /scout/data/colabfold/uniref30_2302.fasta
+
+uniref90_mmseqs_db:
+  class: Directory
+  path: /scout/data/uniref90
+
+uniref90_mmseqs_db_prefix: "uniref90_db"
+
+uniref30_mmseqs_db:
+  class: Directory
+  path: /scout/data/colabfold
+
+uniref30_mmseqs_db_prefix: "uniref30_2302"
+
+jackhmmer_cpus: 64
+mmseqs2_threads: 64

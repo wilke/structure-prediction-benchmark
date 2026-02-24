@@ -5,6 +5,9 @@ doc: |
   Converts a Stockholm-format MSA (from JackHMMER) to A3M format
   for use with Boltz and Chai.
 
+requirements:
+  InlineJavascriptRequirement: {}
+
 hints:
   goweHint:
     executor: local
@@ -56,7 +59,13 @@ inputs:
     default: "output.a3m"
     inputBinding:
       position: 2
-    doc: "Output A3M filename"
+      valueFrom: $(inputs.output_prefix).a3m
+    doc: "Output A3M filename (derived from output_prefix)"
+
+  output_prefix:
+    type: string
+    default: "output"
+    doc: "Prefix for output filename (e.g., 1ubq_chainA.jackhmmer.uniref90)"
 
 outputs:
   a3m_file:

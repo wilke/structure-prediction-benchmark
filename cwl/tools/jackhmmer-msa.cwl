@@ -3,7 +3,11 @@ class: CommandLineTool
 label: MSA generation via JackHMMER
 doc: |
   Generates multiple sequence alignments using JackHMMER iterative
-  search against UniRef90. This is the AlphaFold2 native MSA method.
+  search against a protein sequence database. Outputs Stockholm format
+  MSA and search log.
+
+requirements:
+  InlineJavascriptRequirement: {}
 
 hints:
   goweHint:
@@ -19,9 +23,9 @@ baseCommand: ["jackhmmer"]
 
 arguments:
   - prefix: "-A"
-    valueFrom: $(runtime.outdir)/output.sto
+    valueFrom: $(runtime.outdir)/$(inputs.output_prefix).sto
   - prefix: "-o"
-    valueFrom: $(runtime.outdir)/output.log
+    valueFrom: $(runtime.outdir)/$(inputs.output_prefix).log
 
 inputs:
   fasta:
@@ -34,7 +38,12 @@ inputs:
     type: File
     inputBinding:
       position: 2
-    doc: "Target sequence database (e.g., UniRef90)"
+    doc: "Target sequence database (e.g., UniRef90 FASTA)"
+
+  output_prefix:
+    type: string
+    default: "output"
+    doc: "Prefix for output filenames (e.g., 1ubq_chainA.jackhmmer.uniref90)"
 
   iterations:
     type: int
@@ -68,11 +77,11 @@ outputs:
   msa_sto:
     type: File
     outputBinding:
-      glob: "output.sto"
+      glob: "*.sto"
     doc: "Output MSA in Stockholm format"
 
   search_log:
     type: File
     outputBinding:
-      glob: "output.log"
+      glob: "*.log"
     doc: "JackHMMER search log"
