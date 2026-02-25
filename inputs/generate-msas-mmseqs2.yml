@@ -1,0 +1,42 @@
+# MMseqs2 MSA Generation: 10 targets × 2 databases (UniRef90 + UniRef30)
+# Memory-heavy (~430 GB per job). Must run at -j 2 max.
+#
+# Run:
+#   cwl-runner --parallel -j 2 --metrics --runtime apptainer \
+#     cwl/workflows/generate-msas-mmseqs2.cwl inputs/generate-msas-mmseqs2.yml
+
+target_fastas:
+  - class: File
+    path: ../data/1ubq_chainA.fasta    # 1UBQ_A - Ubiquitin (76 res)
+  - class: File
+    path: ../data/1l2y_chainA.fasta    # 1L2Y_A - Trp-cage miniprotein (20 res)
+  - class: File
+    path: ../data/1mbn_chainA.fasta    # 1MBN_A - Myoglobin (153 res)
+  - class: File
+    path: ../data/1ten_chainA.fasta    # 1TEN_A - Tenascin fibronectin III (90 res)
+  - class: File
+    path: ../data/1ake_chainA.fasta    # 1AKE_A - Adenylate kinase (214 res)
+  - class: File
+    path: ../data/4lzt_chainA.fasta    # 4LZT_A - Hen egg-white lysozyme (129 res)
+  - class: File
+    path: ../data/2src_chainA.fasta    # 2SRC_A - Src tyrosine kinase (449 res)
+  - class: File
+    path: ../data/1bl8_chainA.fasta    # 1BL8_A - Galectin-1 (97 res)
+  - class: File
+    path: ../data/7mrx_chainB.fasta    # 7MRX_B - CASP14 target T1091 (90 res)
+  - class: File
+    path: ../data/7s0b_chainA.fasta    # 7S0B_A - CASP15 target (218 res)
+
+uniref90_mmseqs_db:
+  class: Directory
+  path: /scout/data/uniref90
+
+uniref90_mmseqs_db_prefix: "uniref90_db"
+
+uniref30_mmseqs_db:
+  class: Directory
+  path: /scout/data/colabfold
+
+uniref30_mmseqs_db_prefix: "uniref30_2302"
+
+mmseqs2_threads: 64
