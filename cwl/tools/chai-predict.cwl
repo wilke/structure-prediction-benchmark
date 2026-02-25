@@ -8,9 +8,9 @@ doc: |
 hints:
   goweHint:
     executor: local
-    docker_image: "dxkb/chai:latest"
+    docker_image: "dxkb/chai-bvbrc:latest-gpu"
   DockerRequirement:
-    dockerPull: "dxkb/chai:latest"
+    dockerPull: "dxkb/chai-bvbrc:latest-gpu"
   ResourceRequirement:
     coresMin: 4
     ramMin: 16000

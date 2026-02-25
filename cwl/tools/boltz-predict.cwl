@@ -8,9 +8,9 @@ doc: |
 hints:
   goweHint:
     executor: local
-    docker_image: "dxkb/boltz:latest"
+    docker_image: "dxkb/boltz-bvbrc:latest-gpu"
   DockerRequirement:
-    dockerPull: "dxkb/boltz:latest"
+    dockerPull: "dxkb/boltz-bvbrc:latest-gpu"
   ResourceRequirement:
     coresMin: 4
     ramMin: 16000
