@@ -69,7 +69,9 @@ inputs:
 
   msa_dir:
     type: Directory?
-    doc: "Directory with precomputed MSAs (when use_precomputed_msas=true)"
+    inputBinding:
+      prefix: "--msa_dir"
+    doc: "Directory with precomputed MSAs (when use_precomputed_msas=true). Must contain A3M/STO files in {target_name}/msas/ subdirectory structure."
 
 outputs:
   predicted_pdb:

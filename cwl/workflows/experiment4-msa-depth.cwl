@@ -251,15 +251,62 @@ steps:
     out: [depth_metrics]
 
   # --- Full-depth predictions (no subsampling) ---
+  # Generate Boltz YAMLs for full-depth MSAs
+  make_full_boltz_yaml:
+    run:
+      class: CommandLineTool
+      baseCommand: ["python", "-c"]
+      hints:
+        DockerRequirement:
+          dockerPull: "python:3.11-slim"
+      requirements:
+        InlineJavascriptRequirement: {}
+      arguments:
+        - position: 0
+          valueFrom: |
+            import sys, yaml
+            msa_path = sys.argv[1]
+            with open(msa_path) as f:
+                header = f.readline().strip()
+                seq = ''
+                for line in f:
+                    if line.startswith('>'):
+                        break
+                    seq += line.strip()
+            config = {
+                'sequences': [{
+                    'id': 'A',
+                    'entity_type': 'protein',
+                    'sequence': seq,
+                    'msa': msa_path
+                }]
+            }
+            with open('input.yaml', 'w') as f:
+                yaml.dump(config, f)
+      inputs:
+        msa_file:
+          type: File
+          inputBinding:
+            position: 1
+      outputs:
+        boltz_yaml:
+          type: File
+          outputBinding:
+            glob: "input.yaml"
+    scatter: msa_file
+    in:
+      msa_file: full_msas_mmseqs2
+    out: [boltz_yaml]
+
   boltz_full_mmseqs2:
     run: ../tools/boltz-predict.cwl
     scatter: input_yaml
     in:
-      input_yaml:
-        # These would be Boltz YAMLs with full MMseqs2 MSAs
-        source: full_msas_mmseqs2
+      input_yaml: make_full_boltz_yaml/boltz_yaml
       use_msa_server:
         default: false
+      recycling_steps:
+        default: 3
     out: [predicted_cif]
 
   compare_full_mmseqs2:

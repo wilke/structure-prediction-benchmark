@@ -32,7 +32,7 @@ inputs:
     type: File?
     inputBinding:
       prefix: "--msa"
-    doc: "Precomputed MSA file (A3M format). Omit for single-sequence mode."
+    doc: "Precomputed MSA file (.aligned.pqt Parquet format). Use a3m-to-pqt.cwl to convert from A3M. Omit for single-sequence mode."
 
   num_models:
     type: int
