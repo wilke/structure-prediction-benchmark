@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 LABEL maintainer="dxkb"
 LABEL description="Protein structure comparison tool (protein_compare) with DSSP support"
