@@ -5,12 +5,21 @@ doc: |
   Runs Boltz protein structure prediction using Docker.
   Supports precomputed MSAs (A3M) or auto-generation via MMseqs2 server.
 
+requirements:
+  EnvVarRequirement:
+    envDef:
+      - envName: NUMBA_CACHE_DIR
+        envValue: /tmp
+      - envName: BOLTZ_CACHE
+        envValue: /tmp/boltz_cache
+
 hints:
   goweHint:
     executor: local
-    docker_image: "dxkb/boltz-bvbrc:latest-gpu"
+    docker_image: "dxkb/boltz:latest"
+    gpu: true
   DockerRequirement:
-    dockerPull: "dxkb/boltz-bvbrc:latest-gpu"
+    dockerPull: "dxkb/boltz:latest"
   ResourceRequirement:
     coresMin: 4
     ramMin: 16000

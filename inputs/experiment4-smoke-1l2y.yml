@@ -1,0 +1,27 @@
+# Experiment 4: Smoke Test — 1L2Y (Trp-cage, 20 residues)
+# Single target, single MSA source (mmseqs2/uniref30), reduced depths.
+# Use this to validate the workflow before the full 400-prediction run.
+
+target_fastas:
+  - {class: File, path: ../data/1l2y_chainA.fasta}
+
+experimental_pdbs:
+  - {class: File, path: ../data/experimental/1l2y_chainA.pdb}
+
+full_msas_mmseqs2_uniref30:
+  - {class: File, path: ../data/msas/mmseqs2/1l2y_chainA.mmseqs2.uniref30.a3m}
+
+full_msas_mmseqs2_uniref90:
+  - {class: File, path: ../data/msas/mmseqs2/1l2y_chainA.mmseqs2.uniref90.a3m}
+
+full_msas_jackhmmer_uniref30:
+  - {class: File, path: ../data/msas/jackhmmer/1l2y_chainA.jackhmmer.uniref30.a3m}
+
+full_msas_jackhmmer_uniref90:
+  - {class: File, path: ../data/msas/jackhmmer/1l2y_chainA.jackhmmer.uniref90.a3m}
+
+# Reduced depth set for quick validation
+msa_depths:
+  - 1
+  - 8
+  - 64

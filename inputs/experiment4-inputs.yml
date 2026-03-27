@@ -1,39 +1,91 @@
-# Experiment 4: MSA Depth Sensitivity
-# Tests how subsampling MSAs to different depths affects prediction quality.
-# Uses Boltz with both MMseqs2 and JackHMMER MSAs at varying depths.
+# Experiment 4: MSA Depth Sensitivity Analysis
+# Tests how subsampling MSAs to different depths affects Boltz prediction quality.
+# All 4 MSA tool×database combinations × 10 pilot targets × 10 depth levels.
 #
 # Before running, ensure:
-#   - prepare_targets.py has been run
+#   - prepare_targets.py has been run (FASTA + PDB files)
 #   - generate_msas.py has been run with both mmseqs2 and jackhmmer methods
+#     against both uniref30 and uniref90 databases
 
+# --- Target sequences (for reference; MSAs are precomputed) ---
 target_fastas:
-  - class: File
-    path: ../data/sequences/1AHW_A.fasta
-  - class: File
-    path: ../data/sequences/1BKR_A.fasta
-  # Add one entry per target
+  - {class: File, path: ../data/1ubq_chainA.fasta}
+  - {class: File, path: ../data/1l2y_chainA.fasta}
+  - {class: File, path: ../data/1mbn_chainA.fasta}
+  - {class: File, path: ../data/1ten_chainA.fasta}
+  - {class: File, path: ../data/1ake_chainA.fasta}
+  - {class: File, path: ../data/4lzt_chainA.fasta}
+  - {class: File, path: ../data/2src_chainA.fasta}
+  - {class: File, path: ../data/1bl8_chainA.fasta}
+  - {class: File, path: ../data/7mrx_chainB.fasta}
+  - {class: File, path: ../data/7s0b_chainA.fasta}
 
+# --- Experimental reference structures (same order as target_fastas) ---
 experimental_pdbs:
-  - class: File
-    path: ../data/experimental/1AHW_A.pdb
-  - class: File
-    path: ../data/experimental/1BKR_A.pdb
-  # Must match order of target_fastas
+  - {class: File, path: ../data/experimental/1ubq_chainA.pdb}
+  - {class: File, path: ../data/experimental/1l2y_chainA.pdb}
+  - {class: File, path: ../data/experimental/1mbn_chainA.pdb}
+  - {class: File, path: ../data/experimental/1ten_chainA.pdb}
+  - {class: File, path: ../data/experimental/1ake_chainA.pdb}
+  - {class: File, path: ../data/experimental/4lzt_chainA.pdb}
+  - {class: File, path: ../data/experimental/2src_chainA.pdb}
+  - {class: File, path: ../data/experimental/1bl8_chainA.pdb}
+  - {class: File, path: ../data/experimental/7mrx_chainB.pdb}
+  - {class: File, path: ../data/experimental/7s0b_chainA.pdb}
 
-full_msas_mmseqs2:
-  - class: File
-    path: ../data/msas/mmseqs2/1AHW_A.a3m
-  - class: File
-    path: ../data/msas/mmseqs2/1BKR_A.a3m
-  # Full MSAs from MMseqs2 (A3M format)
+# --- MMseqs2 × UniRef30 MSAs ---
+full_msas_mmseqs2_uniref30:
+  - {class: File, path: ../data/msas/mmseqs2/1ubq_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1l2y_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1mbn_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1ten_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1ake_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/4lzt_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/2src_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1bl8_chainA.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/7mrx_chainB.mmseqs2.uniref30.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/7s0b_chainA.mmseqs2.uniref30.a3m}
 
-full_msas_jackhmmer:
-  - class: File
-    path: ../data/msas/jackhmmer/1AHW_A.a3m
-  - class: File
-    path: ../data/msas/jackhmmer/1BKR_A.a3m
-  # Full MSAs from JackHMMER (A3M format)
+# --- MMseqs2 × UniRef90 MSAs ---
+full_msas_mmseqs2_uniref90:
+  - {class: File, path: ../data/msas/mmseqs2/1ubq_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1l2y_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1mbn_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1ten_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1ake_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/4lzt_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/2src_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/1bl8_chainA.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/7mrx_chainB.mmseqs2.uniref90.a3m}
+  - {class: File, path: ../data/msas/mmseqs2/7s0b_chainA.mmseqs2.uniref90.a3m}
 
+# --- JackHMMER × UniRef30 MSAs ---
+full_msas_jackhmmer_uniref30:
+  - {class: File, path: ../data/msas/jackhmmer/1ubq_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1l2y_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1mbn_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1ten_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1ake_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/4lzt_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/2src_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1bl8_chainA.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/7mrx_chainB.jackhmmer.uniref30.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/7s0b_chainA.jackhmmer.uniref30.a3m}
+
+# --- JackHMMER × UniRef90 MSAs ---
+full_msas_jackhmmer_uniref90:
+  - {class: File, path: ../data/msas/jackhmmer/1ubq_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1l2y_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1mbn_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1ten_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1ake_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/4lzt_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/2src_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/1bl8_chainA.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/7mrx_chainB.jackhmmer.uniref90.a3m}
+  - {class: File, path: ../data/msas/jackhmmer/7s0b_chainA.jackhmmer.uniref90.a3m}
+
+# --- MSA depth levels (excluding "full" which is tested separately) ---
 msa_depths:
   - 1
   - 8

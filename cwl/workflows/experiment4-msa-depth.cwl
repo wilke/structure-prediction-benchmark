@@ -2,41 +2,54 @@ cwlVersion: v1.2
 class: Workflow
 label: "Experiment 4: MSA Depth Sensitivity Analysis"
 doc: |
-  Determines optimal MSA depth by subsampling MSAs to various sizes
-  and measuring prediction quality at each depth level.
+  Determines how MSA depth affects Boltz prediction quality by subsampling
+  MSAs to various sizes and measuring prediction quality at each depth level.
 
-  For each target × MSA source × depth level:
+  Tests all 4 MSA tool×database combinations:
+    - MMseqs2 × UniRef30
+    - MMseqs2 × UniRef90
+    - JackHMMER × UniRef30
+    - JackHMMER × UniRef90
+
+  For each source × target × depth:
     1. Subsample MSA to target depth
-    2. Run Boltz prediction with subsampled MSA
-    3. Compare to experimental structure
+    2. Generate Boltz input YAML from subsampled MSA
+    3. Run Boltz prediction
+    4. Compare to experimental structure
+
+  Also runs full-depth predictions (no subsampling) for each source.
 
   MSA depths: 1 (single-seq), 8, 16, 32, 64, 128, 256, 512, 1024, full
-  MSA sources: MMseqs2, JackHMMER
-
-  Produces learning curves: quality metric vs MSA depth.
+  Scale: 4 sources × 10 targets × 10 depths = 400 predictions + 400 comparisons
 
 requirements:
   ScatterFeatureRequirement: {}
-  SubworkflowFeatureRequirement: {}
   InlineJavascriptRequirement: {}
-  MultipleInputFeatureRequirement: {}
 
 inputs:
   target_fastas:
     type: File[]
-    doc: "Target FASTA files"
+    doc: "Target FASTA files (for reference only; MSAs are precomputed)"
 
   experimental_pdbs:
     type: File[]
-    doc: "Experimental reference structures"
+    doc: "Experimental reference structures (must match target order)"
 
-  full_msas_mmseqs2:
+  full_msas_mmseqs2_uniref30:
     type: File[]
-    doc: "Full MSAs from MMseqs2 (A3M format)"
+    doc: "Full MSAs from MMseqs2 against UniRef30 (A3M format)"
 
-  full_msas_jackhmmer:
+  full_msas_mmseqs2_uniref90:
     type: File[]
-    doc: "Full MSAs from JackHMMER (A3M format)"
+    doc: "Full MSAs from MMseqs2 against UniRef90 (A3M format)"
+
+  full_msas_jackhmmer_uniref30:
+    type: File[]
+    doc: "Full MSAs from JackHMMER against UniRef30 (A3M format)"
+
+  full_msas_jackhmmer_uniref90:
+    type: File[]
+    doc: "Full MSAs from JackHMMER against UniRef90 (A3M format)"
 
   msa_depths:
     type: int[]
@@ -44,300 +57,353 @@ inputs:
     doc: "MSA depth levels to test (excluding 'full')"
 
 steps:
-  # --- Subworkflow: test one MSA source at all depths for one target ---
-  depth_sweep_mmseqs2:
-    doc: "Sweep MSA depths using MMseqs2 MSAs for each target"
+  # =========================================================================
+  # Cross-product expansion: replicate PDBs to match flat_crossproduct output
+  # (10 targets × N depths → 10*N entries, PDBs repeated N times each)
+  # =========================================================================
+  expand_pdbs:
     run:
-      class: Workflow
-      requirements:
-        ScatterFeatureRequirement: {}
-      inputs:
-        full_msa:
-          type: File
-        experimental_pdb:
-          type: File
-        depths:
-          type: int[]
-      steps:
-        subsample:
-          run: ../tools/subsample-msa.cwl
-          scatter: target_depth
-          in:
-            msa_a3m: full_msa
-            target_depth: depths
-            random_seed:
-              default: 42
-          out: [subsampled_a3m]
-
-        # Generate Boltz YAML for each subsampled MSA
-        make_boltz_yaml:
-          run:
-            class: CommandLineTool
-            baseCommand: ["python", "-c"]
-            hints:
-              DockerRequirement:
-                dockerPull: "python:3.11-slim"
-            requirements:
-              InlineJavascriptRequirement: {}
-            arguments:
-              - position: 0
-                valueFrom: |
-                  import sys, yaml
-                  msa_path = sys.argv[1]
-                  # Read query sequence from A3M
-                  with open(msa_path) as f:
-                      header = f.readline().strip()
-                      seq = ''
-                      for line in f:
-                          if line.startswith('>'):
-                              break
-                          seq += line.strip()
-                  config = {
-                      'sequences': [{
-                          'id': 'A',
-                          'entity_type': 'protein',
-                          'sequence': seq,
-                          'msa': msa_path
-                      }]
-                  }
-                  with open('input.yaml', 'w') as f:
-                      yaml.dump(config, f)
-            inputs:
-              msa_file:
-                type: File
-                inputBinding:
-                  position: 1
-            outputs:
-              boltz_yaml:
-                type: File
-                outputBinding:
-                  glob: "input.yaml"
-          scatter: msa_file
-          in:
-            msa_file: subsample/subsampled_a3m
-          out: [boltz_yaml]
-
-        predict:
-          run: ../tools/boltz-predict.cwl
-          scatter: input_yaml
-          in:
-            input_yaml: make_boltz_yaml/boltz_yaml
-            use_msa_server:
-              default: false
-            recycling_steps:
-              default: 3
-          out: [predicted_cif]
-
-        compare:
-          run: ../tools/compare-structures.cwl
-          scatter: predicted
-          in:
-            reference: experimental_pdb
-            predicted: predict/predicted_cif
-          out: [metrics_json]
-
-      outputs:
-        depth_metrics:
-          type: File[]
-          outputSource: compare/metrics_json
-    scatter: [full_msa, experimental_pdb]
-    scatterMethod: dotproduct
-    in:
-      full_msa: full_msas_mmseqs2
-      experimental_pdb: experimental_pdbs
-      depths: msa_depths
-    out: [depth_metrics]
-
-  # --- Same sweep for JackHMMER MSAs ---
-  depth_sweep_jackhmmer:
-    doc: "Sweep MSA depths using JackHMMER MSAs for each target"
-    run:
-      class: Workflow
-      requirements:
-        ScatterFeatureRequirement: {}
-      inputs:
-        full_msa:
-          type: File
-        experimental_pdb:
-          type: File
-        depths:
-          type: int[]
-      steps:
-        subsample:
-          run: ../tools/subsample-msa.cwl
-          scatter: target_depth
-          in:
-            msa_a3m: full_msa
-            target_depth: depths
-            random_seed:
-              default: 42
-          out: [subsampled_a3m]
-
-        make_boltz_yaml:
-          run:
-            class: CommandLineTool
-            baseCommand: ["python", "-c"]
-            hints:
-              DockerRequirement:
-                dockerPull: "python:3.11-slim"
-            requirements:
-              InlineJavascriptRequirement: {}
-            arguments:
-              - position: 0
-                valueFrom: |
-                  import sys, yaml
-                  msa_path = sys.argv[1]
-                  with open(msa_path) as f:
-                      header = f.readline().strip()
-                      seq = ''
-                      for line in f:
-                          if line.startswith('>'):
-                              break
-                          seq += line.strip()
-                  config = {
-                      'sequences': [{
-                          'id': 'A',
-                          'entity_type': 'protein',
-                          'sequence': seq,
-                          'msa': msa_path
-                      }]
-                  }
-                  with open('input.yaml', 'w') as f:
-                      yaml.dump(config, f)
-            inputs:
-              msa_file:
-                type: File
-                inputBinding:
-                  position: 1
-            outputs:
-              boltz_yaml:
-                type: File
-                outputBinding:
-                  glob: "input.yaml"
-          scatter: msa_file
-          in:
-            msa_file: subsample/subsampled_a3m
-          out: [boltz_yaml]
-
-        predict:
-          run: ../tools/boltz-predict.cwl
-          scatter: input_yaml
-          in:
-            input_yaml: make_boltz_yaml/boltz_yaml
-            use_msa_server:
-              default: false
-            recycling_steps:
-              default: 3
-          out: [predicted_cif]
-
-        compare:
-          run: ../tools/compare-structures.cwl
-          scatter: predicted
-          in:
-            reference: experimental_pdb
-            predicted: predict/predicted_cif
-          out: [metrics_json]
-
-      outputs:
-        depth_metrics:
-          type: File[]
-          outputSource: compare/metrics_json
-    scatter: [full_msa, experimental_pdb]
-    scatterMethod: dotproduct
-    in:
-      full_msa: full_msas_jackhmmer
-      experimental_pdb: experimental_pdbs
-      depths: msa_depths
-    out: [depth_metrics]
-
-  # --- Full-depth predictions (no subsampling) ---
-  # Generate Boltz YAMLs for full-depth MSAs
-  make_full_boltz_yaml:
-    run:
-      class: CommandLineTool
-      baseCommand: ["python", "-c"]
-      hints:
-        DockerRequirement:
-          dockerPull: "python:3.11-slim"
+      class: ExpressionTool
       requirements:
         InlineJavascriptRequirement: {}
-      arguments:
-        - position: 0
-          valueFrom: |
-            import sys, yaml
-            msa_path = sys.argv[1]
-            with open(msa_path) as f:
-                header = f.readline().strip()
-                seq = ''
-                for line in f:
-                    if line.startswith('>'):
-                        break
-                    seq += line.strip()
-            config = {
-                'sequences': [{
-                    'id': 'A',
-                    'entity_type': 'protein',
-                    'sequence': seq,
-                    'msa': msa_path
-                }]
-            }
-            with open('input.yaml', 'w') as f:
-                yaml.dump(config, f)
       inputs:
-        msa_file:
-          type: File
-          inputBinding:
-            position: 1
+        pdbs: File[]
+        depths: int[]
+      expression: |-
+        ${
+          var expanded = [];
+          for (var i = 0; i < inputs.pdbs.length; i++) {
+            for (var j = 0; j < inputs.depths.length; j++) {
+              expanded.push(inputs.pdbs[i]);
+            }
+          }
+          return {expanded_pdbs: expanded};
+        }
       outputs:
-        boltz_yaml:
-          type: File
-          outputBinding:
-            glob: "input.yaml"
+        expanded_pdbs:
+          type: File[]
+    in:
+      pdbs: experimental_pdbs
+      depths: msa_depths
+    out: [expanded_pdbs]
+
+  # =========================================================================
+  # MMseqs2 × UniRef30 — Depth sweep
+  # =========================================================================
+  subsample_mmseqs2_uniref30:
+    run: ../tools/subsample-msa.cwl
+    scatter: [msa_a3m, target_depth]
+    scatterMethod: flat_crossproduct
+    in:
+      msa_a3m: full_msas_mmseqs2_uniref30
+      target_depth: msa_depths
+      random_seed:
+        default: 42
+    out: [subsampled_a3m]
+
+  make_yaml_mmseqs2_uniref30:
+    run: ../tools/make-boltz-yaml.cwl
     scatter: msa_file
     in:
-      msa_file: full_msas_mmseqs2
+      msa_file: subsample_mmseqs2_uniref30/subsampled_a3m
     out: [boltz_yaml]
 
-  boltz_full_mmseqs2:
+  predict_mmseqs2_uniref30:
     run: ../tools/boltz-predict.cwl
     scatter: input_yaml
     in:
-      input_yaml: make_full_boltz_yaml/boltz_yaml
+      input_yaml: make_yaml_mmseqs2_uniref30/boltz_yaml
       use_msa_server:
         default: false
       recycling_steps:
         default: 3
     out: [predicted_cif]
 
-  compare_full_mmseqs2:
+  compare_mmseqs2_uniref30:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: expand_pdbs/expanded_pdbs
+      predicted: predict_mmseqs2_uniref30/predicted_cif
+    out: [metrics_json]
+
+  # MMseqs2 × UniRef30 — Full depth
+  make_yaml_full_mmseqs2_uniref30:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: full_msas_mmseqs2_uniref30
+    out: [boltz_yaml]
+
+  predict_full_mmseqs2_uniref30:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_full_mmseqs2_uniref30/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_full_mmseqs2_uniref30:
     run: ../tools/compare-structures.cwl
     scatter: [reference, predicted]
     scatterMethod: dotproduct
     in:
       reference: experimental_pdbs
-      predicted: boltz_full_mmseqs2/predicted_cif
+      predicted: predict_full_mmseqs2_uniref30/predicted_cif
+    out: [metrics_json]
+
+  # =========================================================================
+  # MMseqs2 × UniRef90 — Depth sweep
+  # =========================================================================
+  subsample_mmseqs2_uniref90:
+    run: ../tools/subsample-msa.cwl
+    scatter: [msa_a3m, target_depth]
+    scatterMethod: flat_crossproduct
+    in:
+      msa_a3m: full_msas_mmseqs2_uniref90
+      target_depth: msa_depths
+      random_seed:
+        default: 42
+    out: [subsampled_a3m]
+
+  make_yaml_mmseqs2_uniref90:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: subsample_mmseqs2_uniref90/subsampled_a3m
+    out: [boltz_yaml]
+
+  predict_mmseqs2_uniref90:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_mmseqs2_uniref90/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_mmseqs2_uniref90:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: expand_pdbs/expanded_pdbs
+      predicted: predict_mmseqs2_uniref90/predicted_cif
+    out: [metrics_json]
+
+  # MMseqs2 × UniRef90 — Full depth
+  make_yaml_full_mmseqs2_uniref90:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: full_msas_mmseqs2_uniref90
+    out: [boltz_yaml]
+
+  predict_full_mmseqs2_uniref90:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_full_mmseqs2_uniref90/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_full_mmseqs2_uniref90:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: experimental_pdbs
+      predicted: predict_full_mmseqs2_uniref90/predicted_cif
+    out: [metrics_json]
+
+  # =========================================================================
+  # JackHMMER × UniRef30 — Depth sweep
+  # =========================================================================
+  subsample_jackhmmer_uniref30:
+    run: ../tools/subsample-msa.cwl
+    scatter: [msa_a3m, target_depth]
+    scatterMethod: flat_crossproduct
+    in:
+      msa_a3m: full_msas_jackhmmer_uniref30
+      target_depth: msa_depths
+      random_seed:
+        default: 42
+    out: [subsampled_a3m]
+
+  make_yaml_jackhmmer_uniref30:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: subsample_jackhmmer_uniref30/subsampled_a3m
+    out: [boltz_yaml]
+
+  predict_jackhmmer_uniref30:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_jackhmmer_uniref30/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_jackhmmer_uniref30:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: expand_pdbs/expanded_pdbs
+      predicted: predict_jackhmmer_uniref30/predicted_cif
+    out: [metrics_json]
+
+  # JackHMMER × UniRef30 — Full depth
+  make_yaml_full_jackhmmer_uniref30:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: full_msas_jackhmmer_uniref30
+    out: [boltz_yaml]
+
+  predict_full_jackhmmer_uniref30:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_full_jackhmmer_uniref30/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_full_jackhmmer_uniref30:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: experimental_pdbs
+      predicted: predict_full_jackhmmer_uniref30/predicted_cif
+    out: [metrics_json]
+
+  # =========================================================================
+  # JackHMMER × UniRef90 — Depth sweep
+  # =========================================================================
+  subsample_jackhmmer_uniref90:
+    run: ../tools/subsample-msa.cwl
+    scatter: [msa_a3m, target_depth]
+    scatterMethod: flat_crossproduct
+    in:
+      msa_a3m: full_msas_jackhmmer_uniref90
+      target_depth: msa_depths
+      random_seed:
+        default: 42
+    out: [subsampled_a3m]
+
+  make_yaml_jackhmmer_uniref90:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: subsample_jackhmmer_uniref90/subsampled_a3m
+    out: [boltz_yaml]
+
+  predict_jackhmmer_uniref90:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_jackhmmer_uniref90/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_jackhmmer_uniref90:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: expand_pdbs/expanded_pdbs
+      predicted: predict_jackhmmer_uniref90/predicted_cif
+    out: [metrics_json]
+
+  # JackHMMER × UniRef90 — Full depth
+  make_yaml_full_jackhmmer_uniref90:
+    run: ../tools/make-boltz-yaml.cwl
+    scatter: msa_file
+    in:
+      msa_file: full_msas_jackhmmer_uniref90
+    out: [boltz_yaml]
+
+  predict_full_jackhmmer_uniref90:
+    run: ../tools/boltz-predict.cwl
+    scatter: input_yaml
+    in:
+      input_yaml: make_yaml_full_jackhmmer_uniref90/boltz_yaml
+      use_msa_server:
+        default: false
+      recycling_steps:
+        default: 3
+    out: [predicted_cif]
+
+  compare_full_jackhmmer_uniref90:
+    run: ../tools/compare-structures.cwl
+    scatter: [reference, predicted]
+    scatterMethod: dotproduct
+    in:
+      reference: experimental_pdbs
+      predicted: predict_full_jackhmmer_uniref90/predicted_cif
     out: [metrics_json]
 
 outputs:
-  mmseqs2_depth_metrics:
-    type:
-      type: array
-      items:
-        type: array
-        items: File
-    outputSource: depth_sweep_mmseqs2/depth_metrics
-    doc: "Per-target array of per-depth metrics (MMseqs2)"
-
-  jackhmmer_depth_metrics:
-    type:
-      type: array
-      items:
-        type: array
-        items: File
-    outputSource: depth_sweep_jackhmmer/depth_metrics
-    doc: "Per-target array of per-depth metrics (JackHMMER)"
-
-  full_depth_metrics:
+  # MMseqs2 × UniRef30
+  mmseqs2_uniref30_depth_metrics:
     type: File[]
-    outputSource: compare_full_mmseqs2/metrics_json
-    doc: "Full-depth MSA prediction metrics"
+    outputSource: compare_mmseqs2_uniref30/metrics_json
+    doc: "Depth-sweep metrics (MMseqs2/UniRef30), flat array of targets×depths"
+
+  mmseqs2_uniref30_full_metrics:
+    type: File[]
+    outputSource: compare_full_mmseqs2_uniref30/metrics_json
+    doc: "Full-depth metrics (MMseqs2/UniRef30)"
+
+  # MMseqs2 × UniRef90
+  mmseqs2_uniref90_depth_metrics:
+    type: File[]
+    outputSource: compare_mmseqs2_uniref90/metrics_json
+    doc: "Depth-sweep metrics (MMseqs2/UniRef90), flat array of targets×depths"
+
+  mmseqs2_uniref90_full_metrics:
+    type: File[]
+    outputSource: compare_full_mmseqs2_uniref90/metrics_json
+    doc: "Full-depth metrics (MMseqs2/UniRef90)"
+
+  # JackHMMER × UniRef30
+  jackhmmer_uniref30_depth_metrics:
+    type: File[]
+    outputSource: compare_jackhmmer_uniref30/metrics_json
+    doc: "Depth-sweep metrics (JackHMMER/UniRef30), flat array of targets×depths"
+
+  jackhmmer_uniref30_full_metrics:
+    type: File[]
+    outputSource: compare_full_jackhmmer_uniref30/metrics_json
+    doc: "Full-depth metrics (JackHMMER/UniRef30)"
+
+  # JackHMMER × UniRef90
+  jackhmmer_uniref90_depth_metrics:
+    type: File[]
+    outputSource: compare_jackhmmer_uniref90/metrics_json
+    doc: "Depth-sweep metrics (JackHMMER/UniRef90), flat array of targets×depths"
+
+  jackhmmer_uniref90_full_metrics:
+    type: File[]
+    outputSource: compare_full_jackhmmer_uniref90/metrics_json
+    doc: "Full-depth metrics (JackHMMER/UniRef90)"
